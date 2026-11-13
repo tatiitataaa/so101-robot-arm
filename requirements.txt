@@ -1,0 +1,2 @@
+# Tested with Python 3.12 (conda env "lerobot") on macOS arm64
+lerobot[feetech,core_scripts]==0.7.0

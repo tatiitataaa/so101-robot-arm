@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project additions: macOS + large local data (datasets, recordings, checkpoints)
+.DS_Store
+data/
+outputs/
+*.mp4
+*.safetensors
