@@ -43,27 +43,86 @@ Find the board's port with `lerobot-find-port` (unplug the USB cable when asked)
 IDs are stored **on the motor itself** (EEPROM), not in this repo. Label every motor with a sticker.
 New motors are all ID 1, so set up **one motor at a time, alone on the board**.
 
+All 12 motors are set up and both arms are assembled (verified 2026-11-23: all 6 motors
+answer on each board at ~5.4 V).
+
 ### Leader arm
 
 | Joint | ID | Gear ratio | Status |
 |---|---|---|---|
-| shoulder_pan | 1 | 1/191 | ☐ |
-| shoulder_lift | 2 | 1/345 | ☐ |
-| elbow_flex | 3 | 1/191 | ☐ |
-| wrist_flex | 4 | 1/147 | ☐ |
-| wrist_roll | 5 | 1/147 | ✅ done (verified: model 777, fw 3.10, 1,000,000 baud) |
-| gripper | 6 | 1/147 | ☐ (friend) |
+| shoulder_pan | 1 | 1/191 | ✅ |
+| shoulder_lift | 2 | 1/345 | ✅ |
+| elbow_flex | 3 | 1/191 | ✅ |
+| wrist_flex | 4 | 1/147 | ✅ |
+| wrist_roll | 5 | 1/147 | ✅ |
+| gripper | 6 | 1/147 | ✅ |
 
 ### Follower arm
 
 | Joint | ID | Gear ratio | Status |
 |---|---|---|---|
-| shoulder_pan | 1 | 1/345 | ☐ |
-| shoulder_lift | 2 | 1/345 | ☐ |
-| elbow_flex | 3 | 1/345 | ☐ |
-| wrist_flex | 4 | 1/345 | ☐ |
-| wrist_roll | 5 | 1/345 | ☐ |
-| gripper | 6 | 1/345 | ☐ |
+| shoulder_pan | 1 | 1/345 | ✅ |
+| shoulder_lift | 2 | 1/345 | ✅ |
+| elbow_flex | 3 | 1/345 | ✅ |
+| wrist_flex | 4 | 1/345 | ✅ |
+| wrist_roll | 5 | 1/345 | ✅ |
+| gripper | 6 | 1/345 | ✅ |
+
+## Ports (this MacBook)
+
+| Arm | Port |
+|---|---|
+| Leader | `/dev/tty.usbmodem5B910272241` |
+| Follower | `/dev/tty.usbmodem5B910436491` |
+
+The names belong to each board, so they normally stay the same. If a command can't find a port,
+run `lerobot-find-port` again. To tell the boards apart, unplug one USB cable and see which port disappears.
+
+## Calibration
+
+LeRobot looks calibration up by **id**. Always use `my_follower` and `my_leader`, both when
+calibrating and when teleoperating. A different id (or a different laptop) means "no calibration
+found", and the follower then moves wrongly. That was the cause of the wrong-direction problem.
+
+LeRobot stores the files in `~/.cache/huggingface/lerobot/calibration/`. A backup is in
+[`calibration/`](calibration/) in this repo, with the same folder layout.
+
+**Restore on a new laptop** (instead of recalibrating):
+```bash
+mkdir -p ~/.cache/huggingface/lerobot/calibration
+cp -R calibration/* ~/.cache/huggingface/lerobot/calibration/
+```
+The ranges are tied to these motors, not to the laptop, so the backup works anywhere for these arms.
+
+**Calibrate from scratch:**
+```bash
+lerobot-calibrate --robot.type=so101_follower --robot.port=/dev/tty.usbmodem5B910436491 --robot.id=my_follower
+lerobot-calibrate --teleop.type=so101_leader --teleop.port=/dev/tty.usbmodem5B910272241 --teleop.id=my_leader
+```
+1. Middle pose (every joint halfway, as in the video), then ENTER.
+2. Move every joint to **both mechanical ends**, then ENTER (wrist_roll is skipped).
+
+**Lessons learned:**
+- With LeRobot 0.7's default `use_degrees=true`, a joint's zero is the **middle of its recorded
+  range**. If a joint doesn't reach one of its ends, its zero shifts and the follower sits off by
+  that amount. (Our leader shoulder_lift first recorded only 768–2481, so the follower's shoulder sat ~36° too high.)
+- Lift the leader off the table while calibrating. Its handle hits the table and stops the
+  arm from folding fully.
+- Close the follower gripper **fully** during calibration. Otherwise "closed" leaves a gap.
+- To fix one joint without redoing everything, use `scripts/recalibrate_joint.py` (below).
+
+## Teleoperation
+
+```bash
+source ~/miniforge3/bin/activate lerobot && cd ~/so101-robot-arm
+lerobot-teleoperate \
+  --robot.type=so101_follower --robot.port=/dev/tty.usbmodem5B910436491 --robot.id=my_follower \
+  --teleop.type=so101_leader --teleop.port=/dev/tty.usbmodem5B910272241 --teleop.id=my_leader
+```
+- Start with both arms in the rest pose. The follower jumps to the leader's pose right away.
+- Clamp the leader **at the table edge** so the handle hangs freely and the rest poses match.
+- Optional speed limit for testing: `--robot.max_relative_target=10`.
+- Stop with Ctrl+C. **Hold the follower first**, because it goes limp.
 
 ## Scripts
 
@@ -73,14 +132,25 @@ python scripts/motor_readonly_test.py /dev/tty.usbmodemXXXX
 
 # Give ONE Leader motor its ID (writes ID + baud to the motor's EEPROM, no movement)
 python scripts/set_one_motor_id.py /dev/tty.usbmodemXXXX wrist_roll
+
+# Do Leader and Follower joints turn the same way? (read-only, raw encoders, guided)
+python scripts/check_directions.py <leader_port> <follower_port> [joint ...]
+
+# Live raw positions of both arms side by side (read-only, Ctrl+C to stop)
+python scripts/live_positions.py <leader_port> <follower_port> [joint ...]
+
+# Re-record ONE joint's range, keep every other joint (torque off, saves a .bak)
+python scripts/recalibrate_joint.py leader|follower <port> <joint>
 ```
 
 Joints: `shoulder_pan` (1), `shoulder_lift` (2), `elbow_flex` (3), `wrist_flex` (4), `wrist_roll` (5), `gripper` (6).
 `set_one_motor_id.py` uses the Leader's ID table. Follower motors are set up with the official
 `lerobot-setup-motors --robot.type=so101_follower --robot.port=...` instead.
 
+After any recalibration, update the backup in this repo and commit it:
+`rsync -a --exclude='*.bak' ~/.cache/huggingface/lerobot/calibration/ calibration/`
+
 ## Next steps
 
-1. Set IDs for the remaining motors.
-2. Assemble both arms.
-3. Calibrate (`lerobot-calibrate`), then back up the calibration files LeRobot saves.
+1. Add cameras and record a first dataset (`lerobot-record`).
+2. Train a first policy (e.g. ACT) on the recorded episodes.
