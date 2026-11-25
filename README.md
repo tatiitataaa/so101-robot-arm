@@ -4,6 +4,24 @@ Building and programming an open-source SO-101 Robotic arm using Hugging Face Le
 Building the [SO-101](https://huggingface.co/docs/lerobot/so101) Leader and Follower arms with
 [Hugging Face LeRobot](https://github.com/huggingface/lerobot).
 
+## Control room web app (`web/`)
+
+A browser app to control the follower by typing or speaking, follow the leader arm (teleop) and save poses.
+It talks to the arms directly over USB from **Chrome or Edge** (Web Serial), so no local server is needed.
+
+- Code: [`web/`](web/) is a linked copy (git submodule) of
+  [pangpulkes/robot-arm-control-room](https://github.com/pangpulkes/robot-arm-control-room), which is synced with the
+  Lovable project "Arm Whisper Control Room". Change the app there or in Lovable, not in this repo.
+- Clone with the app included: `git clone --recurse-submodules https://github.com/tatiitataaa/so101-robot-arm.git`
+  (already cloned? `git submodule update --init`). To move `web/` to the newest app version:
+  `git submodule update --remote web`, then commit.
+- Open the app in its own Chrome tab (not inside the Lovable editor), then **Setup → Connect** the follower
+  (port ending in …5B910436491) and the leader (…5B910272241). Only one program can use an arm at a time, so stop
+  `lerobot-teleoperate` first.
+- Safety built in: connecting only reads; the leader is never written to; moves are slow (≤ 20 °/s, following ≤ 60 °/s);
+  each goal stays within a per-joint distance of where the follower really is (elbow 25°, shoulder_lift 20°, others
+  10–12°); STOP / Esc holds the arm where it is.
+
 ## Setup (macOS, Apple Silicon)
 
 ```bash
